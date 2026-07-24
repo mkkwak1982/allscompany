@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SALES
+}
+
+model User {
+  id            String   @id @default(cuid())
+  role          Role
+  username      String   @unique
+  passwordHash  String
+  passwordPlain String?
+  name          String
+  createdAt     DateTime @default(now())
+
+  advertisersManaged Advertiser[] @relation("SalesRep")
+}
+
+model Advertiser {
+  id            String   @id @default(cuid())
+  businessRegNo String   @unique
+  companyName   String
+  salesRepId    String
+  salesRep      User     @relation("SalesRep", fields: [salesRepId], references: [id])
+  createdAt     DateTime @default(now())
+  quote         Quote?
+}
+
+model Quote {
+  id                     String          @id @default(cuid())
+  advertiserId           String          @unique
+  advertiser             Advertiser      @relation(fields: [advertiserId], references: [id])
+  promisedMonthlyRevenue Float           @default(0)
+  payTier                Float           @default(1)
+  contractStartDate      DateTime?
+  contractEndDate        DateTime?
+  updatedAt              DateTime        @updatedAt
+  lineItems              QuoteLineItem[]
+}
+
+model QuoteLineItem {
+  id           String  @id @default(cuid())
+  quoteId      String
+  quote        Quote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  categoryKey  String
+  slotKey      String
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  quantity     Int     @default(0)
+  discountRate Float   @default(0)
+
+  @@unique([quoteId, categoryKey, slotKey])
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  categoryKey   String
+  slotKey       String
+  label         String
+  model         String
+  retailPrice   Float
+  supplyPrice   Float
+  sortOrder     Int             @default(0)
+  isDefault     Boolean         @default(false)
+  lineItems     QuoteLineItem[]
+
+  @@index([categoryKey, slotKey])
+}
+
+model CapitalRate {
+  categoryKey String @id
+  rate        Float
+}
+
+model CardFeeTier {
+  id      String @id @default(cuid())
+  payTier Float
+  grade   String
+  feeRate Float
+
+  @@unique([payTier, grade])
+}
+
+model PgDeductionTier {
+  grade String @id
+  rate  Float
+}
+
+model GradeThreshold {
+  grade               String @id
+  minAnnualRevenue    Float
+  sortOrder           Int    @default(0)
+}
+
+model Settings {
+  id            Int   @id @default(1)
+  vanFeeRate    Float @default(0.012)
+  supportMonths Int   @default(48)
+}
