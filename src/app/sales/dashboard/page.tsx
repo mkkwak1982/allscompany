@@ -1,20 +1,23 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getQuoteByAdvertiserId, hasAnyContractedLineItem } from "@/lib/quote-data";
+import { getQuoteByAdvertiserId, getMasterData, hasAnyContractedLineItem } from "@/lib/quote-data";
 import { formatWon, formatDate } from "@/lib/format";
 
 export default async function SalesDashboardPage() {
   const session = await requireRole("SALES");
 
-  const advertisers = await prisma.advertiser.findMany({
-    where: { salesRepId: session.sub },
-    orderBy: { createdAt: "desc" },
-  });
+  const [advertisers, master] = await Promise.all([
+    prisma.advertiser.findMany({
+      where: { salesRepId: session.sub },
+      orderBy: { createdAt: "desc" },
+    }),
+    getMasterData(),
+  ]);
 
   const allRows = await Promise.all(
     advertisers.map(async (advertiser) => {
-      const data = await getQuoteByAdvertiserId(advertiser.id);
+      const data = await getQuoteByAdvertiserId(advertiser.id, master);
       return { advertiser, data };
     })
   );

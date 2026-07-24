@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getQuoteByAdvertiserId } from "@/lib/quote-data";
+import { getQuoteByAdvertiserId, getMasterData } from "@/lib/quote-data";
 import { formatWon } from "@/lib/format";
 
 export default async function AdminDashboardPage({
@@ -13,16 +13,19 @@ export default async function AdminDashboardPage({
   const { view: viewParam, rep: selectedRepId } = await searchParams;
   const view = viewParam === "byrep" ? "byrep" : "all";
 
-  const salesReps = await prisma.user.findMany({
-    where: { role: "SALES" },
-    orderBy: { createdAt: "asc" },
-    include: { advertisersManaged: true },
-  });
+  const [salesReps, master] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: "SALES" },
+      orderBy: { createdAt: "asc" },
+      include: { advertisersManaged: true },
+    }),
+    getMasterData(),
+  ]);
 
   const repSummaries = await Promise.all(
     salesReps.map(async (rep) => {
       const results = await Promise.all(
-        rep.advertisersManaged.map((a) => getQuoteByAdvertiserId(a.id))
+        rep.advertisersManaged.map((a) => getQuoteByAdvertiserId(a.id, master))
       );
       const totalContractAmount = results.reduce((s, r) => s + (r?.result.totals.totalIncVat ?? 0), 0);
       const totalProfit = results.reduce((s, r) => s + (r?.result.totalRevenueProfit ?? 0), 0);

@@ -69,14 +69,17 @@ export type QuoteWithCalc = {
   result: QuoteCalcResult;
 };
 
-export async function getQuoteByAdvertiserId(advertiserId: string): Promise<QuoteWithCalc | null> {
+export async function getQuoteByAdvertiserId(
+  advertiserId: string,
+  preloadedMaster?: CalcMasterData
+): Promise<QuoteWithCalc | null> {
   const advertiser = await prisma.advertiser.findUnique({
     where: { id: advertiserId },
     include: { quote: { include: { lineItems: { include: { product: true } } } } },
   });
   if (!advertiser || !advertiser.quote) return null;
 
-  const master = await getMasterData();
+  const master = preloadedMaster ?? (await getMasterData());
   const lineItemInputs: LineItemInput[] = advertiser.quote.lineItems.map((li) => ({
     id: li.id,
     categoryKey: li.categoryKey,
